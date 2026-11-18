@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>당 체크 · 당류 체크</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 한 줄기 도구 화면: 오늘 합계 → 기록 입력 → 오늘 기록 → 7일 추이. 색은 발표 슬라이드(짙은 녹색, 주황 포인트)와 맞춤 */
+:root {
+  --bg: #F6F3EC;
+  --surface: #FFFFFF;
+  --ink: #1F2A25;
+  --muted: #5F6F67;
+  --line: #E3DCCD;
+  --brand: #1B3A2E;
+  --green: #2E7D5B;
+  --mint: #E5F0EA;
+  --accent: #C8581E;
+  --accent-soft: #FBE9DC;
+  --ok: #2E7D5B;
+  --warn: #9A6A12;
+  --over: #B83A1E;
+  --btn: #1B3A2E;
+  --btn-ink: #FFFFFF;
+  --focus: #C8581E;
+  --font: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101A15; --surface: #18251E; --ink: #E8EFEA; --muted: #9DB0A5; --line: #2A3B32;
+    --brand: #CFE3D8; --green: #5DB48C; --mint: #1D3128; --accent: #E8895A; --accent-soft: #3A2418;
+    --ok: #5DB48C; --warn: #E0B24F; --over: #EE7A5E; --btn: #5DB48C; --btn-ink: #0E1B15; --focus: #E8895A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101A15; --surface: #18251E; --ink: #E8EFEA; --muted: #9DB0A5; --line: #2A3B32;
+  --brand: #CFE3D8; --green: #5DB48C; --mint: #1D3128; --accent: #E8895A; --accent-soft: #3A2418;
+  --ok: #5DB48C; --warn: #E0B24F; --over: #EE7A5E; --btn: #5DB48C; --btn-ink: #0E1B15; --focus: #E8895A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { margin: 0; font-size: 28px; line-height: 1.25; color: var(--brand); text-wrap: balance; word-break: keep-all; }
+.lead, .card p { word-break: keep-all; }
+h2 { margin: 0; font-size: 17px; color: var(--brand); }
+.eyebrow { margin: 0 0 4px; font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+.lead { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* 오늘 합계 */
+.total { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.total .big { font-size: 44px; font-weight: 700; line-height: 1; color: var(--brand); }
+.total .unit { font-size: 18px; color: var(--muted); }
+.status { font-weight: 700; font-size: 14px; padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.status.ok { color: var(--ok); } .status.warn { color: var(--warn); } .status.over { color: var(--over); }
+.meter { position: relative; height: 14px; background: var(--mint); border-radius: 999px; margin: 8px 0 30px; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; background: var(--green); border-radius: 999px; transition: width .35s ease; }
+.meter .fill.warn { background: var(--warn); } .meter .fill.over { background: var(--over); }
+.tick { position: absolute; top: -5px; width: 2px; height: 24px; background: var(--ink); }
+.tick span { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); font-size: 11px; white-space: nowrap; color: var(--muted); }
+
+/* 폼 */
+label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+input[type=text], input[type=number], select {
+  width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px;
+}
+input.auto { border-color: var(--accent); background: var(--accent-soft); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.hint { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip, .seg button {
+  font: inherit; font-size: 14px; min-height: 40px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+}
+.chip:hover, .seg button:hover { border-color: var(--green); }
+.seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.seg button { border-radius: 10px; font-weight: 500; }
+.seg button[aria-pressed=true] { background: var(--brand); color: var(--bg); border-color: var(--brand); font-weight: 700; }
+:root[data-theme="dark"] .seg button[aria-pressed=true] { background: var(--green); color: #0E1B15; border-color: var(--green); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seg button[aria-pressed=true] { background: var(--green); color: #0E1B15; border-color: var(--green); } }
+.btn { font: inherit; font-weight: 700; font-size: 16px; min-height: 48px; padding: 10px 18px; border-radius: 12px; border: 0; cursor: pointer; background: var(--btn); color: var(--btn-ink); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--brand); border: 1px solid var(--line); font-weight: 500; font-size: 14px; min-height: 40px; }
+.btn.ghost:hover { border-color: var(--green); }
+.preview { border-radius: 12px; background: var(--mint); padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+.preview .formula { font-size: 13px; color: var(--muted); }
+.preview .result { font-size: 18px; font-weight: 700; color: var(--brand); }
+.photo { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.photo img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+input[type=file] { font: inherit; font-size: 14px; max-width: 100%; }
+.note { font-size: 13px; color: var(--accent); margin: 0; }
+
+/* 기록 목록 */
+ul.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+ul.log li { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+ul.log li:first-child { border-top: 0; }
+ul.log img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; }
+ul.log .info { flex: 1; min-width: 0; }
+ul.log .nm { font-weight: 500; overflow-wrap: anywhere; }
+ul.log .g { font-weight: 700; font-size: 18px; color: var(--brand); }
+.del { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; min-height: 36px; padding: 4px 10px; cursor: pointer; }
+.empty { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* 7일 추이 */
+.plot { position: relative; height: 170px; display: flex; gap: 8px; align-items: stretch; padding-top: 4px; }
+.col { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.col .v { font-size: 11px; color: var(--muted); margin-bottom: 2px; min-height: 14px; }
+.col .bar { width: 62%; background: var(--green); border-radius: 5px 5px 0 0; transition: height .35s ease; }
+.col.today .bar { background: var(--accent); }
+.ref { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
+.ref span { position: absolute; left: 0; top: -17px; font-size: 11px; color: var(--muted); background: var(--surface); padding: 0 4px; }
+.axis { display: flex; gap: 8px; }
+.axis div { flex: 1; text-align: center; font-size: 12px; color: var(--muted); min-width: 0; }
+.axis .today { color: var(--accent); font-weight: 700; }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.stats b { font-size: 22px; color: var(--brand); }
+textarea { width: 100%; font: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-height: 120px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom, 0px)); background: var(--brand); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); }
+:root[data-theme="dark"] .toast { background: var(--green); color: #0E1B15; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .toast { background: var(--green); color: #0E1B15; } }
+.foot { font-size: 12px; color: var(--muted); margin: 0; }
+@media (max-width: 440px) { .grid3 { grid-template-columns: 1fr 1fr; } .grid3 > :last-child { grid-column: 1 / -1; } h1 { font-size: 24px; } .total .big { font-size: 38px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">7조 · 직장인 가당음료 영양교육</p>
+    <h1>마신 음료의 당류, 직접 계산해 보세요</h1>
+    <p class="lead">라벨의 당류, 표시 기준량, 총 내용량을 넣으면 한 병 전체 당류와 실제로 마신 양의 당류가 나와요.</p>
+  </header>
+
+  <section class="card" aria-labelledby="h-today">
+    <div class="row">
+      <h2 id="h-today">오늘 마신 당류</h2>
+      <div>
+        <label for="kcal" class="small muted" style="margin:0 0 2px">하루 열량 기준</label>
+        <select id="kcal" style="min-height:40px;padding:6px 10px;font-size:14px;width:auto">
+          <option value="1800">1,800 kcal</option>
+          <option value="2000" selected>2,000 kcal</option>
+          <option value="2200">2,200 kcal</option>
+          <option value="2500">2,500 kcal</option>
+        </select>
+      </div>
+    </div>
+    <div class="total"><span class="big num" id="todayG">0</span><span class="unit">g</span><span class="status ok" id="status">기록 전</span></div>
+    <div class="meter" id="meter" role="img" aria-label="오늘 당류 섭취량과 권고 기준">
+      <div class="fill" id="fill" style="width:0"></div>
+      <div class="tick" id="tickWho"><span id="tickWhoL"></span></div>
+      <div class="tick" id="tickKr"><span id="tickKrL"></span></div>
+    </div>
+    <p class="small muted" style="margin:0" id="todayMsg"></p>
+  </section>
+
+  <section class="card" aria-labelledby="h-add">
+    <h2 id="h-add">음료 기록하기</h2>
+    <div>
+      <p class="small muted" style="margin:0 0 8px">예시로 채우기 (값은 예시이니 실제 제품 라벨로 고쳐 주세요)</p>
+      <div class="chips" id="presets"></div>
+    </div>
+    <div>
+      <label for="photo">라벨 사진 (선택)</label>
+      <div class="photo">
+        <img id="thumb" alt="첨부한 라벨 사진" hidden>
+        <input type="file" id="photo" accept="image/*">
+        <button type="button" class="btn ghost" id="readBtn" hidden>라벨 읽어서 채우기</button>
+        <button type="button" class="btn ghost" id="rmPhoto" hidden>사진 빼기</button>
+      </div>
+      <p class="hint" id="photoHint">사진을 붙이면 기록에 함께 남아요.</p>
+      <p class="note" id="autoNote" hidden>자동으로 읽은 값이에요. 라벨과 맞는지 확인하고 고쳐 주세요.</p>
+    </div>
+    <div>
+      <label for="name">음료 이름</label>
+      <input type="text" id="name" autocomplete="off" placeholder="예: 믹스커피 1봉">
+    </div>
+    <div class="grid3">
+      <div>
+        <label for="sugar">당류 (g)</label>
+        <input type="number" id="sugar" inputmode="decimal" min="0" step="0.1" placeholder="라벨 표기값">
+      </div>
+      <div>
+        <label for="serving">표시 기준량</label>
+        <input type="number" id="serving" inputmode="decimal" min="0" step="1" placeholder="mL 또는 g">
+      </div>
+      <div>
+        <label for="total">총 내용량</label>
+        <input type="number" id="total" inputmode="decimal" min="0" step="1" placeholder="mL 또는 g">
+      </div>
+    </div>
+    <p class="hint" style="margin-top:-6px">라벨에 '총 내용량당'이라 적혀 있으면 표시 기준량은 비워 두세요. '100mL당'이면 100, '1회 섭취참고량당' 등이면 그 양을 넣으세요.</p>
+    <div>
+      <label id="fracLabel">얼마나 마셨나요?</label>
+      <div class="seg" role="group" aria-labelledby="fracLabel" id="seg">
+        <button type="button" data-f="0.25" aria-pressed="false">1/4</button>
+        <button type="button" data-f="0.5" aria-pressed="false">1/2</button>
+        <button type="button" data-f="0.75" aria-pressed="false">3/4</button>
+        <button type="button" data-f="1" aria-pressed="true">전부</button>
+      </div>
+    </div>
+    <div class="preview" id="preview" aria-live="polite"></div>
+    <button type="button" class="btn" id="addBtn">기록 추가</button>
+  </section>
+
+  <section class="card" aria-labelledby="h-log">
+    <h2 id="h-log">오늘 기록</h2>
+    <ul class="log" id="log"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="h-week">
+    <h2 id="h-week">최근 7일</h2>
+    <div class="stats">
+      <div><b class="num" id="wkCount">0</b><span class="muted small"> 회 기록</span></div>
+      <div><b class="num" id="wkSum">0</b><span class="muted small"> g 합계</span></div>
+      <div><b class="num" id="wkAvg">0</b><span class="muted small"> g 하루 평균</span></div>
+    </div>
+    <div class="plot" id="plot"></div>
+    <div class="axis" id="axis"></div>
+    <div class="row">
+      <button type="button" class="btn ghost" id="copyBtn">7일 기록 복사</button>
+      <span class="small muted">복사해서 단체 대화방이나 설문에 붙여 넣을 수 있어요</span>
+    </div>
+    <textarea id="summary" readonly hidden aria-label="7일 기록 요약"></textarea>
+  </section>
+
+  <p class="foot">기준: 2025 한국인 영양소 섭취기준은 첨가당을 에너지의 10% 이내로 제한하고 가당음료를 줄이도록 권고해요. 열량 2,000kcal 기준 약 50g입니다. WHO는 5% 미만(약 25g)을 추가로 권고해요. 라벨의 당류는 첨가당이 아닌 총당류라서 비교는 참고용이에요. 기록은 이 기기의 브라우저에만 저장되고, 브라우저 데이터를 지우면 사라져요.</p>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = "tang-check-v1";
+  const WD = ["일", "월", "화", "수", "목", "금", "토"];
+  const FRAC = { "0.25": "1/4", "0.5": "1/2", "0.75": "3/4", "1": "전부" };
+  const PRESETS = [
+    { name: "콜라 캔 250mL", sugar: 27, serving: 250, total: 250 },
+    { name: "예시 500mL (100mL당 8g)", sugar: 8, serving: 100, total: 500 },
+    { name: "무가당 차 500mL", sugar: 0, serving: 500, total: 500 }
+  ];
+
+  let state = { kcal: 2000, records: [] };
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.records)) state = { kcal: +p.kcal || 2000, records: p.records }; }
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); return true; } catch (e) { return false; } };
+
+  let frac = 1, thumb = "", photoFile = null, autoFilled = false;
+
+  const r1 = n => Math.round(n * 10) / 10;
+  const show = n => String(r1(n));
+  const num = v => (v === "" || v == null) ? NaN : parseFloat(v);
+  const key = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const limits = () => ({ kr: state.kcal * 0.1 / 4, who: state.kcal * 0.05 / 4 });
+  const dayTotal = k => state.records.filter(r => r.date === k).reduce((s, r) => s + r.eaten, 0);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  }
+
+  /* 계산: 한 병 전체 당류 = 당류 × 총 내용량 ÷ 표시 기준량 */
+  function calc() {
+    const s = num($("sugar").value), t = num($("total").value);
+    let sv = num($("serving").value);
+    if (!(s >= 0) || !(t > 0)) return null;
+    if (!(sv > 0)) sv = t;
+    const bottle = s * t / sv;
+    return { s, t, sv, bottle, eaten: bottle * frac };
+  }
+
+  function renderPreview() {
+    const box = $("preview"); box.textContent = "";
+    const c = calc();
+    if (!c) { box.append(el("span", "formula", "당류와 총 내용량을 넣으면 한 병 전체 당류가 계산돼요.")); return; }
+    const { kr } = limits();
+    box.append(
+      el("span", "formula", show(c.s) + "g × (" + show(c.t) + " ÷ " + show(c.sv) + ") = 한 병 전체 " + show(c.bottle) + "g"),
+      el("span", "result num", FRAC[String(frac)] + " 마시면 " + show(c.eaten) + "g"),
+      el("span", "formula", "하루 기준(첨가당 " + show(kr) + "g)의 " + Math.round(c.eaten / kr * 100) + "%")
+    );
+  }
+
+  function renderToday() {
+    const { kr, who } = limits();
+    const total = dayTotal(key(new Date()));
+    $("todayG").textContent = show(total);
+    const scale = Math.max(kr * 1.3, total * 1.05);
+    const pos = v => Math.min(100, v / scale * 100) + "%";
+    $("fill").style.width = pos(total);
+    $("tickWho").style.left = pos(who); $("tickKr").style.left = pos(kr);
+    $("tickWhoL").textContent = "WHO " + show(who) + "g"; $("tickKrL").textContent = "한국 " + show(kr) + "g";
+    const st = $("status"), fill = $("fill");
+    let cls = "ok", label = "기록 전", msg = "음료를 기록하면 오늘 합계가 여기에 쌓여요.";
+    const n = state.records.filter(r => r.date === key(new Date())).length;
+    if (n) {
+      if (total <= who) { cls = "ok"; label = "WHO 기준 이내"; msg = "오늘 " + n + "회 기록했어요. 아직 여유가 있어요."; }
+      else if (total <= kr) { cls = "warn"; label = "한국 기준 이내"; msg = "WHO 권고(" + show(who) + "g)는 넘었어요. 한국 기준까지 " + show(kr - total) + "g 남았어요."; }
+      else { cls = "over"; label = "한국 기준 초과"; msg = "기준보다 " + show(total - kr) + "g 많아요. 내일은 무가당 음료로 바꿔 보세요."; }
+    }
+    st.className = "status " + cls; st.textContent = label;
+    fill.className = "fill " + (cls === "ok" ? "" : cls);
+    $("todayMsg").textContent = msg;
+    $("meter").setAttribute("aria-label", "오늘 " + show(total) + "g, WHO " + show(who) + "g, 한국 " + show(kr) + "g");
+  }
+
+  function renderLog() {
+    const ul = $("log"); ul.textContent = "";
+    const list = state.records.filter(r => r.date === key(new Date())).sort((a, b) => b.ts - a.ts);
+    if (!list.length) { const li = el("li"); li.append(el("p", "empty", "아직 기록이 없어요. 위에서 음료를 추가해 보세요.")); ul.append(li); return; }
+    list.forEach(r => {
+      const li = el("li");
+      if (r.thumb) { const im = el("img"); im.src = r.thumb; im.alt = ""; li.append(im); }
+      const info = el("div", "info");
+      info.append(el("div", "nm", r.name || "이름 없는 음료"), el("div", "small muted num", FRAC[String(r.frac)] + " 마심 · 한 병 전체 " + show(r.bottle) + "g"));
+      const g = el("div", "g num", show(r.eaten) + "g");
+      const d = el("button", "del", "삭제"); d.type = "button"; d.setAttribute("aria-label", (r.name || "음료") + " 기록 삭제");
+      d.onclick = () => { state.records = state.records.filter(x => x.id !== r.id); save(); renderAll(); };
+      li.append(info, g, d); ul.append(li);
+    });
+  }
+
+  function renderWeek() {
+    const { kr, who } = limits();
+    const days = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push({ d, k: key(d), g: dayTotal(key(d)), today: i === 0 }); }
+    const keys = days.map(x => x.k);
+    const recs = state.records.filter(r => keys.includes(r.date));
+    const sum = recs.reduce((s, r) => s + r.eaten, 0);
+    $("wkCount").textContent = recs.length; $("wkSum").textContent = show(sum); $("wkAvg").textContent = show(sum / 7);
+    const max = Math.max(kr * 1.2, ...days.map(x => x.g * 1.1));
+    const H = 0.86;
+    const plot = $("plot"), axis = $("axis"); plot.textContent = ""; axis.textContent = "";
+    days.forEach(x => {
+      const c = el("div", "col" + (x.today ? " today" : ""));
+      c.append(el("div", "v num", x.g ? show(x.g) : ""));
+      const b = el("div", "bar"); b.style.height = (x.g / max * H * 100) + "%"; if (!x.g) b.style.height = "2px";
+      c.append(b); plot.append(c);
+      axis.append(el("div", x.today ? "today" : "", (x.d.getMonth() + 1) + "/" + x.d.getDate() + " " + WD[x.d.getDay()]));
+    });
+    [[kr, "한국 " + show(kr) + "g"], [who, "WHO " + show(who) + "g"]].forEach(([v, t]) => {
+      const l = el("div", "ref"); l.style.bottom = "calc(" + (v / max * H * 100) + "% + 0px)"; l.append(el("span", "", t)); plot.append(l);
+    });
+  }
+
+  function summaryText() {
+    const lines = ["[7일 당류 기록]"];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const rs = state.records.filter(r => r.date === key(d)).sort((a, b) => a.ts - b.ts);
+      const head = (d.getMonth() + 1) + "/" + d.getDate() + "(" + WD[d.getDay()] + ") ";
+      lines.push(head + (rs.length ? rs.map(r => (r.name || "음료") + " " + FRAC[String(r.frac)] + " " + show(r.eaten) + "g").join(", ") + " = " + show(dayTotal(key(d))) + "g" : "기록 없음"));
+    }
+    const keys = []; for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); keys.push(key(d)); }
+    const recs = state.records.filter(r => keys.includes(r.date));
+    lines.push("합계 " + show(recs.reduce((s, r) => s + r.eaten, 0)) + "g, 기록 " + recs.length + "회");
+    return lines.join("\n");
+  }
+
+  function renderAll() { renderToday(); renderLog(); renderWeek(); renderPreview(); }
+
+  /* 입력 */
+  function setFrac(f) {
+    frac = f;
+    document.querySelectorAll("#seg button").forEach(b => b.setAttribute("aria-pressed", String(parseFloat(b.dataset.f) === f)));
+    renderPreview();
+  }
+  document.querySelectorAll("#seg button").forEach(b => { b.onclick = () => setFrac(parseFloat(b.dataset.f)); });
+  ["sugar", "serving", "total"].forEach(id => $(id).addEventListener("input", () => { $(id).classList.remove("auto"); renderPreview(); }));
+
+  function fill(p, auto) {
+    $("name").value = p.name || ""; $("sugar").value = p.sugar ?? ""; $("serving").value = p.serving ?? ""; $("total").value = p.total ?? "";
+    ["sugar", "serving", "total"].forEach(id => $(id).classList.toggle("auto", !!auto && $(id).value !== ""));
+    autoFilled = !!auto; $("autoNote").hidden = !auto;
+    renderPreview();
+  }
+  PRESETS.forEach(p => { const b = el("button", "chip", p.name); b.type = "button"; b.onclick = () => fill(p, false); $("presets").append(b); });
+
+  $("kcal").value = String(state.kcal);
+  $("kcal").onchange = () => { state.kcal = parseInt($("kcal").value, 10) || 2000; save(); renderAll(); };
+
+  $("addBtn").onclick = () => {
+    const c = calc();
+    if (!c) { toast("당류(g)와 총 내용량을 입력해 주세요."); (isNaN(num($("sugar").value)) ? $("sugar") : $("total")).focus(); return; }
+    const now = new Date();
+    state.records.push({ id: now.getTime() + "-" + Math.random().toString(36).slice(2, 6), ts: now.getTime(), date: key(now), name: $("name").value.trim(), frac, bottle: c.bottle, eaten: c.eaten, thumb });
+    const ok = save();
+    fill({ name: "", sugar: "", serving: "", total: "" }, false); removePhoto(); setFrac(1);
+    renderAll();
+    toast(ok ? "기록했어요." : "기록했지만 이 브라우저에는 저장하지 못했어요.");
+  };
+
+  /* 사진: 썸네일을 기록에 붙이고, 사용할 수 있으면 Claude로 라벨 값을 읽어 채움 */
+  function makeThumb(file) {
+    return new Promise(res => {
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => {
+        const m = 160, k = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        let out = ""; try { out = c.toDataURL("image/jpeg", 0.6); } catch (e) {}
+        URL.revokeObjectURL(url); res(out);
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); res(""); };
+      im.src = url;
+    });
+  }
+  function updatePhotoUI() {
+    $("thumb").hidden = !thumb; if (thumb) $("thumb").src = thumb;
+    $("rmPhoto").hidden = !photoFile;
+    $("readBtn").hidden = !photoFile;
+    $("photoHint").textContent = "사진을 붙이면 기록에 함께 남아요. 라벨 숫자는 자동으로 읽어 채울 수도 있어요(정확하지 않을 수 있어 확인이 필요해요).";
+  }
+  function removePhoto() { photoFile = null; thumb = ""; $("photo").value = ""; updatePhotoUI(); }
+  $("photo").onchange = async () => {
+    const f = $("photo").files && $("photo").files[0];
+    if (!f) return removePhoto();
+    photoFile = f; thumb = await makeThumb(f); updatePhotoUI();
+  };
+  $("rmPhoto").onclick = removePhoto;
+
+  /* 라벨 읽기: 브라우저에서 Tesseract.js(OCR)로 읽고, 결과는 항상 사용자가 확인·수정 */
+  let tessPromise = null;
+  function loadTess() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (!tessPromise) tessPromise = new Promise((res, rej) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      sc.onload = () => res(window.Tesseract);
+      sc.onerror = () => { tessPromise = null; rej(new Error("load")); };
+      document.head.append(sc);
+    });
+    return tessPromise;
+  }
+  function prep(file) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(file), im = new Image();
+      im.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        const x = c.getContext("2d");
+        try { x.filter = "grayscale(1) contrast(1.4)"; } catch (e) {}
+        x.drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); res(c);
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); };
+      im.src = url;
+    });
+  }
+  function parseLabel(raw) {
+    const t = String(raw).replace(/\s+/g, "").replace(/[,，]/g, "").replace(/ℓ/g, "L");
+    const out = { sugar: "", serving: "", total: "" };
+    const conv = (v, u) => { let n = parseFloat(v); if (!isFinite(n)) return ""; if (/^l$/i.test(u)) n *= 1000; return n; };
+    let m;
+    if ((m = t.match(/당류(\d+(?:\.\d+)?)g/))) out.sugar = parseFloat(m[1]);
+    if ((m = t.match(/(?:1회제공량|1회섭취참고량)[^\d]{0,6}(\d+(?:\.\d+)?)(ml|g|L)/i))) out.serving = conv(m[1], m[2]);
+    else if ((m = t.match(/(\d+(?:\.\d+)?)(ml|g)당(?!류)/i))) out.serving = parseFloat(m[1]);
+    if ((m = t.match(/내용량[^\d]{0,4}(\d+(?:\.\d+)?)(ml|g|L)/i))) out.total = conv(m[1], m[2]);
+    return out;
+  }
+  window.__parseLabel = parseLabel;
+
+  $("readBtn").onclick = async () => {
+    if (!photoFile) return;
+    const btn = $("readBtn"); btn.disabled = true; btn.textContent = "읽는 중…";
+    toast("처음에는 한글 데이터를 내려받느라 시간이 걸릴 수 있어요.");
+    try {
+      const T = await loadTess();
+      const cv = await prep(photoFile);
+      const r = await T.recognize(cv, "kor+eng");
+      const p = parseLabel((r && r.data && r.data.text) || "");
+      if (p.sugar === "" && p.serving === "" && p.total === "") throw new Error("none");
+      fill({ name: $("name").value, sugar: p.sugar, serving: p.serving, total: p.total }, true);
+      toast("읽은 값을 채웠어요. 라벨과 맞는지 확인해 주세요.");
+    } catch (e) {
+      toast("라벨을 읽지 못했어요. 값을 직접 입력해 주세요.");
+    } finally { btn.disabled = false; btn.textContent = "라벨 읽어서 채우기"; }
+  };
+
+  /* 복사 */
+  $("copyBtn").onclick = async () => {
+    const text = summaryText(), box = $("summary");
+    try { await navigator.clipboard.writeText(text); toast("복사했어요."); }
+    catch (e) { box.hidden = false; box.value = text; box.focus(); box.select(); toast("길게 눌러 복사해 주세요."); }
+  };
+
+  fill(PRESETS[0], false);
+  setFrac(0.5);
+  updatePhotoUI();
+  renderAll();
+})();
+</script>
+</body>
+</html>
